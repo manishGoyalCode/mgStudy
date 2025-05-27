@@ -7,6 +7,10 @@ class ReadingItem {
         this.tags = tags;
         this.status = 'unread';
         this.dateAdded = new Date().toISOString();
+        this.progress = 0; // Progress percentage (0-100)
+        this.timeSpent = 0; // Time spent in seconds
+        this.lastRead = null; // Last reading session timestamp
+        this.readingSessions = []; // Array to store reading sessions
     }
 }
 
@@ -74,6 +78,21 @@ class ReadingTracker {
         this.readingCount = document.getElementById('reading-count');
         this.completedCount = document.getElementById('completed-count');
         
+        this.activeReadingSession = null;
+        
+        this.deletedItems = new Map(); // Store recently deleted items
+        this.undoTimers = new Map(); // Store undo timers
+        
+        // Stats elements
+        this.statsPanel = document.getElementById('stats-panel');
+        this.statsToggle = document.getElementById('stats-toggle');
+        this.statsClose = document.querySelector('.stats-close');
+        this.readingTrendsChart = document.getElementById('reading-trends-chart');
+        
+        // Initialize Chart.js
+        this.chart = null;
+        this.loadChartJS();
+        
         this.initialize();
     }
     
@@ -136,6 +155,14 @@ class ReadingTracker {
                     this.clearSearch();
                 });
             }
+        }
+
+        // Stats panel toggle
+        if (this.statsToggle) {
+            this.statsToggle.addEventListener('click', () => this.toggleStatsPanel());
+        }
+        if (this.statsClose) {
+            this.statsClose.addEventListener('click', () => this.toggleStatsPanel());
         }
     }
     
@@ -315,14 +342,173 @@ class ReadingTracker {
     }
     
     updateStats() {
-        const stats = this.items.reduce((acc, item) => {
-            acc[item.status]++;
-            return acc;
-        }, { unread: 0, reading: 0, completed: 0 });
-        
-        if (this.unreadCount) this.unreadCount.textContent = `📥 Unread: ${stats.unread}`;
-        if (this.readingCount) this.readingCount.textContent = `📖 Reading: ${stats.reading}`;
-        if (this.completedCount) this.completedCount.textContent = `✅ Completed: ${stats.completed}`;
+        this.updateOverviewStats();
+        this.updateReadingTrends();
+        this.updateTagCloud();
+        this.updateRecentActivity();
+    }
+    
+    updateOverviewStats() {
+        // Update total items
+        document.getElementById('total-items').textContent = this.items.length;
+
+        // Calculate total reading time
+        const totalTime = this.items.reduce((acc, item) => acc + (item.timeSpent || 0), 0);
+        document.getElementById('total-time').textContent = this.formatTime(totalTime);
+
+        // Calculate completion rate
+        const completedItems = this.items.filter(item => item.status === 'completed').length;
+        const completionRate = this.items.length ? Math.round((completedItems / this.items.length) * 100) : 0;
+        document.getElementById('completion-rate').textContent = `${completionRate}%`;
+
+        // Calculate average completion time
+        const completedItemsTimes = this.items
+            .filter(item => item.status === 'completed')
+            .map(item => item.timeSpent || 0);
+        const avgTime = completedItemsTimes.length
+            ? Math.round(completedItemsTimes.reduce((a, b) => a + b, 0) / completedItemsTimes.length)
+            : 0;
+        document.getElementById('avg-completion-time').textContent = this.formatTime(avgTime);
+    }
+    
+    updateReadingTrends() {
+        if (!this.readingTrendsChart || !window.Chart) return;
+
+        // Get last 7 days of activity
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            return date.toISOString().split('T')[0];
+        }).reverse();
+
+        // Count reading sessions per day
+        const sessionsPerDay = last7Days.map(date => {
+            return this.items.reduce((count, item) => {
+                const sessions = item.readingSessions || [];
+                return count + sessions.filter(session => 
+                    session.startTime.split('T')[0] === date
+                ).length;
+            }, 0);
+        });
+
+        // Update or create chart
+        if (this.chart) {
+            this.chart.destroy();
+        }
+
+        this.chart = new Chart(this.readingTrendsChart, {
+            type: 'line',
+            data: {
+                labels: last7Days.map(date => {
+                    const [year, month, day] = date.split('-');
+                    return `${month}/${day}`;
+                }),
+                datasets: [{
+                    label: 'Reading Sessions',
+                    data: sessionsPerDay,
+                    borderColor: '#2384E1',
+                    backgroundColor: 'rgba(35, 132, 225, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    updateTagCloud() {
+        const tagCloud = document.getElementById('tag-cloud');
+        if (!tagCloud) return;
+
+        // Count tag occurrences
+        const tagCounts = {};
+        this.items.forEach(item => {
+            (item.tags || []).forEach(tag => {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+            });
+        });
+
+        // Calculate tag sizes based on frequency
+        const maxCount = Math.max(...Object.values(tagCounts), 1);
+        const tags = Object.entries(tagCounts)
+            .sort((a, b) => b[1] - a[1])
+            .map(([tag, count]) => {
+                const size = 0.8 + (count / maxCount) * 0.7; // Size between 0.8 and 1.5rem
+                const opacity = 0.5 + (count / maxCount) * 0.5; // Opacity between 0.5 and 1
+                return `<span class="tag" style="--tag-size: ${size}rem; --tag-opacity: ${opacity}">#${tag}</span>`;
+            });
+
+        tagCloud.innerHTML = tags.join('');
+    }
+    
+    updateRecentActivity() {
+        const activityList = document.getElementById('activity-list');
+        if (!activityList) return;
+
+        // Collect all activities
+        const activities = [];
+
+        // Add reading sessions
+        this.items.forEach(item => {
+            (item.readingSessions || []).forEach(session => {
+                activities.push({
+                    type: 'session',
+                    title: item.title,
+                    time: new Date(session.startTime),
+                    duration: session.duration
+                });
+            });
+        });
+
+        // Sort by most recent
+        activities.sort((a, b) => b.time - a.time);
+
+        // Take last 5 activities
+        const recentActivities = activities.slice(0, 5);
+
+        // Render activities
+        activityList.innerHTML = recentActivities.map(activity => `
+            <div class="activity-item">
+                <div class="activity-icon">📖</div>
+                <div class="activity-details">
+                    <div class="activity-title">${activity.title}</div>
+                    <div class="activity-time">
+                        Read for ${this.formatTime(activity.duration)} • 
+                        ${this.formatRelativeTime(activity.time)}
+                    </div>
+                </div>
+            </div>
+        `).join('') || '<div class="activity-item">No recent activity</div>';
+    }
+    
+    formatRelativeTime(date) {
+        const now = new Date();
+        const diff = now - date;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (days > 0) return `${days}d ago`;
+        if (hours > 0) return `${hours}h ago`;
+        if (minutes > 0) return `${minutes}m ago`;
+        return 'Just now';
     }
     
     getFilteredItems() {
@@ -382,18 +568,102 @@ class ReadingTracker {
     
     handleDeleteItem(id) {
         const itemElement = document.querySelector(`[data-id="${id}"]`);
-        if (itemElement) {
+        const item = this.items.find(item => item.id === id);
+        
+        if (itemElement && item) {
+            // Store the item and its index for potential undo
+            const itemIndex = this.items.findIndex(i => i.id === id);
+            this.deletedItems.set(id, { item, index: itemIndex });
+            
             // Animate deletion
             itemElement.style.transition = 'all 0.3s ease';
             itemElement.style.transform = 'translateX(100px)';
             itemElement.style.opacity = '0';
             
+            // Remove item from the list
             setTimeout(() => {
                 this.items = this.items.filter(item => item.id !== id);
                 this.saveItems();
                 this.renderItems();
+                
+                // Show undo toast
+                this.showUndoToast(id);
             }, 300);
         }
+    }
+    
+    showUndoToast(itemId) {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.querySelector('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container';
+            document.body.appendChild(toastContainer);
+        }
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `
+            <div class="toast-content">
+                <span>Item deleted</span>
+                <button class="undo-btn">Undo</button>
+            </div>
+            <div class="toast-progress"></div>
+        `;
+
+        // Add to container
+        toastContainer.appendChild(toast);
+
+        // Add undo button listener
+        const undoBtn = toast.querySelector('.undo-btn');
+        undoBtn.addEventListener('click', () => this.handleUndo(itemId, toast));
+
+        // Set timer for auto-removal
+        const timer = setTimeout(() => {
+            this.removeToast(toast);
+            this.deletedItems.delete(itemId);
+        }, 5000);
+
+        // Store the timer
+        this.undoTimers.set(itemId, timer);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+    }
+
+    handleUndo(itemId, toast) {
+        const deletedItem = this.deletedItems.get(itemId);
+        if (deletedItem) {
+            // Clear the auto-remove timer
+            clearTimeout(this.undoTimers.get(itemId));
+            this.undoTimers.delete(itemId);
+
+            // Restore the item
+            this.items.splice(deletedItem.index, 0, deletedItem.item);
+            this.deletedItems.delete(itemId);
+            
+            // Save and render
+            this.saveItems();
+            this.renderItems();
+
+            // Remove the toast
+            this.removeToast(toast);
+        }
+    }
+
+    removeToast(toast) {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            toast.remove();
+            // Remove container if empty
+            const container = document.querySelector('.toast-container');
+            if (container && !container.hasChildNodes()) {
+                container.remove();
+            }
+        }, 300);
     }
     
     highlightSearchMatches(text, type = 'text') {
@@ -423,23 +693,58 @@ class ReadingTracker {
         li.className = 'reading-item';
         li.dataset.id = item.id;
         
+        // Set active session attribute for styling
+        const isActiveSession = this.activeReadingSession && this.activeReadingSession.itemId === item.id;
+        if (isActiveSession) {
+            li.dataset.activeSession = 'true';
+        }
+        
         const title = item.url 
-            ? `<h3><a href="${item.url}" target="_blank" rel="noopener noreferrer">${this.highlightSearchMatches(item.title)}</a></h3>`
-            : `<h3>${this.highlightSearchMatches(item.title)}</h3>`;
+            ? `<div class="item-title"><a href="${item.url}" target="_blank" rel="noopener noreferrer">${this.highlightSearchMatches(item.title)}</a></div>`
+            : `<div class="item-title">${this.highlightSearchMatches(item.title)}</div>`;
             
         const url = item.url 
-            ? `<span class="item-url">${this.highlightSearchMatches(item.url, 'url')}</span>`
+            ? `<div class="item-url">${this.highlightSearchMatches(item.url, 'url')}</div>`
             : '';
-            
-        const statusEmoji = {
-            unread: '📥',
-            reading: '📖',
-            completed: '✅'
-        };
-            
-        const statusBadge = `<span class="status-badge status-${item.status}">${statusEmoji[item.status]} ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}</span>`;
+
+        // Calculate current session time if active
+        let currentSessionTime = 0;
+        if (isActiveSession) {
+            currentSessionTime = Math.floor((Date.now() - this.activeReadingSession.startTime) / 1000);
+        }
         
-        // Create tags HTML with highlighted matches
+        const totalTime = item.timeSpent + (isActiveSession ? currentSessionTime : 0);
+            
+        // Create status dropdown
+        const statusDropdown = `
+            <div class="status-dropdown">
+                <select class="status-select" data-action="change-status">
+                    <option value="unread" ${item.status === 'unread' ? 'selected' : ''}>📥 Unread</option>
+                    <option value="reading" ${item.status === 'reading' ? 'selected' : ''}>📖 Reading</option>
+                    <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>✅ Completed</option>
+                </select>
+            </div>`;
+            
+        const progressBar = `
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${item.progress}%"></div>
+                </div>
+                <input type="number" 
+                    class="progress-input" 
+                    value="${item.progress}" 
+                    min="0" 
+                    max="100"
+                    aria-label="Reading progress percentage">
+                <span class="progress-label">${item.progress}%</span>
+            </div>`;
+
+        const readingStats = `
+            <div class="reading-stats">
+                <span class="reading-time">${this.formatTime(totalTime)}</span>
+                ${item.lastRead ? `<span class="last-read">Last read: ${this.formatDate(item.lastRead)}</span>` : ''}
+            </div>`;
+        
         const tagsHtml = item.tags.length > 0 
             ? `<div class="item-tags">
                 ${item.tags.map(tag => `<span class="tag">#${this.highlightSearchMatches(tag)}</span>`).join('')}
@@ -447,16 +752,24 @@ class ReadingTracker {
             : '';
         
         li.innerHTML = `
-            ${title}
-            ${url}
-            ${statusBadge}
-            ${tagsHtml}
-            <div class="item-actions">
-                ${item.status !== 'reading' ? 
-                    `<button class="btn btn-status btn-reading" data-action="reading">📖 Mark as Reading</button>` : ''}
-                ${item.status !== 'completed' ? 
-                    `<button class="btn btn-status btn-completed" data-action="completed">✅ Mark as Completed</button>` : ''}
-                <button class="btn btn-status btn-delete" data-action="delete">🗑️ Delete</button>
+            <div class="item-main-content">
+                <div class="item-header">
+                    <div class="item-title-section">
+                        ${title}
+                        ${url}
+                    </div>
+                    ${statusDropdown}
+                </div>
+                ${tagsHtml}
+                ${progressBar}
+                ${readingStats}
+                <div class="item-actions">
+                    ${!isActiveSession && item.status !== 'completed' ? 
+                        `<button class="btn btn-status btn-reading" data-action="start-reading">📖 Start Reading Session</button>` : ''}
+                    ${isActiveSession ? 
+                        `<button class="btn btn-status btn-completed" data-action="end-reading">⏸️ End Reading Session</button>` : ''}
+                    <button class="btn btn-status btn-delete" data-action="delete">🗑️ Delete</button>
+                </div>
             </div>
         `;
         
@@ -466,11 +779,36 @@ class ReadingTracker {
                 const action = button.dataset.action;
                 if (action === 'delete') {
                     this.handleDeleteItem(item.id);
-                } else {
-                    this.handleStatusChange(item.id, action);
+                } else if (action === 'start-reading') {
+                    this.startReadingSession(item.id);
+                } else if (action === 'end-reading') {
+                    this.endReadingSession();
                 }
             });
         });
+
+        // Add event listener for status change
+        const statusSelect = li.querySelector('.status-select');
+        if (statusSelect) {
+            statusSelect.addEventListener('change', (e) => {
+                const newStatus = e.target.value;
+                if (newStatus !== item.status) {
+                    if (isActiveSession && newStatus !== 'reading') {
+                        this.endReadingSession();
+                    }
+                    this.handleStatusChange(item.id, newStatus);
+                }
+            });
+        }
+
+        // Add event listener for progress input
+        const progressInput = li.querySelector('.progress-input');
+        if (progressInput) {
+            progressInput.addEventListener('change', (e) => {
+                const progress = parseInt(e.target.value, 10);
+                this.updateProgress(item.id, progress);
+            });
+        }
         
         return li;
     }
@@ -524,6 +862,124 @@ class ReadingTracker {
     toggleSearchClear() {
         if (this.searchClear) {
             this.searchClear.classList.toggle('visible', this.searchInput.value.length > 0);
+        }
+    }
+
+    startReadingSession(itemId) {
+        // End any existing session first
+        this.endReadingSession();
+        
+        const item = this.items.find(item => item.id === itemId);
+        if (item) {
+            // Start new session
+            this.activeReadingSession = {
+                itemId,
+                startTime: Date.now(),
+                timer: setInterval(() => this.updateReadingTime(itemId), 1000)
+            };
+            
+            // Update item status if needed
+            if (item.status === 'unread') {
+                item.status = 'reading';
+            }
+            
+            item.lastRead = new Date().toISOString();
+            this.saveItems();
+            this.renderItems();
+        }
+    }
+
+    endReadingSession() {
+        if (this.activeReadingSession) {
+            // Clear the timer
+            clearInterval(this.activeReadingSession.timer);
+            
+            // Save the session
+            const item = this.items.find(item => item.id === this.activeReadingSession.itemId);
+            if (item) {
+                const duration = Math.floor((Date.now() - this.activeReadingSession.startTime) / 1000);
+                item.timeSpent = (item.timeSpent || 0) + duration;
+                
+                // Ensure readingSessions array exists
+                if (!Array.isArray(item.readingSessions)) {
+                    item.readingSessions = [];
+                }
+                
+                item.readingSessions.push({
+                    startTime: new Date(this.activeReadingSession.startTime).toISOString(),
+                    duration: duration,
+                    endTime: new Date().toISOString()
+                });
+            }
+            
+            this.activeReadingSession = null;
+            this.saveItems();
+            this.renderItems();
+        }
+    }
+
+    updateReadingTime(itemId) {
+        const item = this.items.find(item => item.id === itemId);
+        if (item && this.activeReadingSession) {
+            const currentSessionTime = Math.floor((Date.now() - this.activeReadingSession.startTime) / 1000);
+            const totalTime = (item.timeSpent || 0) + currentSessionTime;
+            
+            // Update the time display in real-time
+            const timeDisplay = document.querySelector(`[data-id="${itemId}"] .reading-time`);
+            if (timeDisplay) {
+                timeDisplay.textContent = this.formatTime(totalTime);
+            }
+        }
+    }
+
+    updateProgress(itemId, progress) {
+        const item = this.items.find(item => item.id === itemId);
+        if (item) {
+            item.progress = Math.min(Math.max(0, progress), 100);
+            if (item.progress === 100) {
+                item.status = 'completed';
+                this.endReadingSession();
+            }
+            this.saveItems();
+            this.renderItems();
+        }
+    }
+
+    formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0s';
+        
+        if (seconds < 60) return `${seconds}s`;
+        if (seconds < 3600) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}m ${remainingSeconds}s`;
+        }
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    async loadChartJS() {
+        // Load Chart.js dynamically
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        script.onload = () => this.initializeChart();
+        document.head.appendChild(script);
+    }
+
+    toggleStatsPanel() {
+        this.statsPanel.classList.toggle('show');
+        if (this.statsPanel.classList.contains('show')) {
+            this.updateStats();
         }
     }
 }

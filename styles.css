@@ -1,33 +1,35 @@
 :root {
     /* Light theme variables */
-    --primary-color: #2E3440;
-    --secondary-color: #4C566A;
-    --success-color: #A3BE8C;
-    --danger-color: #BF616A;
-    --background-color: #F9FAFB;
+    --primary-color: #2384E1;
+    --secondary-color: #6B7280;
+    --success-color: #0F9D58;
+    --danger-color: #DC2626;
+    --background-color: #FFFFFF;
     --card-background: #FFFFFF;
-    --text-color: #2E3440;
+    --text-color: #1F2937;
     --border-color: #E5E7EB;
-    --hover-color: #ECEFF4;
+    --hover-color: #F3F4F6;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --muted-color: #9CA3AF;
 }
 
-/* Dark theme variables */
+/* Dark theme variables - Notion-inspired */
 [data-theme="dark"] {
-    --primary-color: #88C0D0;
-    --secondary-color: #D8DEE9;
-    --success-color: #A3BE8C;
-    --danger-color: #BF616A;
-    --background-color: #2E3440;
-    --card-background: #3B4252;
-    --text-color: #ECEFF4;
-    --border-color: #4C566A;
-    --hover-color: #434C5E;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    --primary-color: #2384E1;
+    --secondary-color: #ECECEC;
+    --success-color: #0F9D58;
+    --danger-color: #E5484D;
+    --background-color: #191919;
+    --card-background: #2D2D2D;
+    --text-color: #ECECEC;
+    --border-color: #393939;
+    --hover-color: #363636;
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    --muted-color: #A3A3A3;
 }
 
 /* Smooth transitions for theme switching */
@@ -467,10 +469,12 @@ input::placeholder {
     border-radius: 0.5rem;
     transition: all 0.3s ease;
     margin-left: 1rem;
+    opacity: 0.8;
 }
 
 .theme-toggle:hover {
     transform: scale(1.1);
+    opacity: 1;
 }
 
 [data-theme="dark"] .theme-toggle-light {
@@ -482,31 +486,59 @@ input::placeholder {
 }
 
 /* Dark mode specific styles */
+[data-theme="dark"] body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .top-nav {
+    background-color: var(--card-background);
+    border-bottom: 1px solid var(--border-color);
+}
+
 [data-theme="dark"] input {
     background-color: var(--background-color);
     color: var(--text-color);
     border-color: var(--border-color);
 }
 
+[data-theme="dark"] input::placeholder {
+    color: var(--muted-color);
+}
+
 [data-theme="dark"] input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(136, 192, 208, 0.2);
+    box-shadow: 0 0 0 2px rgba(35, 132, 225, 0.2);
+}
+
+[data-theme="dark"] .add-item-section {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
 }
 
 [data-theme="dark"] .btn-primary {
     background-color: var(--primary-color);
-    color: var(--background-color);
+    color: white;
+}
+
+[data-theme="dark"] .btn-primary:hover {
+    background-color: #1b6dc1;
 }
 
 [data-theme="dark"] .filter-btn {
-    background-color: transparent;
+    background-color: var(--card-background);
     color: var(--text-color);
-    border-color: var(--border-color);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .filter-btn:hover {
+    background-color: var(--hover-color);
 }
 
 [data-theme="dark"] .filter-btn.active {
     background-color: var(--primary-color);
-    color: var(--background-color);
+    color: white;
+    border-color: var(--primary-color);
 }
 
 [data-theme="dark"] .reading-item {
@@ -514,12 +546,34 @@ input::placeholder {
     border-color: var(--border-color);
 }
 
+[data-theme="dark"] .reading-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--hover-color);
+}
+
 [data-theme="dark"] .reading-item a {
     color: var(--primary-color);
 }
 
 [data-theme="dark"] .item-url {
-    color: var(--secondary-color);
+    color: var(--muted-color);
+}
+
+[data-theme="dark"] .tags-filter {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .tag {
+    background-color: var(--hover-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .tag:hover {
+    background-color: var(--card-background);
+    border-color: var(--primary-color);
 }
 
 [data-theme="dark"] .status-unread {
@@ -528,21 +582,42 @@ input::placeholder {
 }
 
 [data-theme="dark"] .status-reading {
-    background-color: rgba(136, 192, 208, 0.2);
-    color: var(--primary-color);
+    background-color: rgba(35, 132, 225, 0.15);
+    color: #60A5FA;
 }
 
 [data-theme="dark"] .status-completed {
-    background-color: rgba(163, 190, 140, 0.2);
-    color: var(--success-color);
+    background-color: rgba(15, 157, 88, 0.15);
+    color: #34D399;
+}
+
+[data-theme="dark"] .btn-reading {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+[data-theme="dark"] .btn-completed {
+    background-color: var(--success-color);
+    color: white;
 }
 
 [data-theme="dark"] .btn-delete {
+    background-color: transparent;
     color: var(--danger-color);
-    border-color: var(--danger-color);
+    border: 1px solid var(--danger-color);
 }
 
 [data-theme="dark"] .btn-delete:hover {
     background-color: var(--danger-color);
-    color: var(--background-color);
+    color: white;
+}
+
+[data-theme="dark"] h1, 
+[data-theme="dark"] h2, 
+[data-theme="dark"] h3 {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .progress-summary {
+    color: var(--muted-color);
 } 

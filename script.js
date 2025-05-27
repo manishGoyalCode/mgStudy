@@ -50,6 +50,7 @@ class ReadingTracker {
         this.activeTags = new Set();
         this.allTags = new Set();
         this.currentTags = new Set();
+        this.searchQuery = '';
         
         // Initialize theme manager
         this.themeManager = new ThemeManager();
@@ -64,6 +65,9 @@ class ReadingTracker {
         this.filterButtons = document.querySelectorAll('.filter-btn');
         this.activeTagsContainer = document.getElementById('active-tags');
         this.availableTagsContainer = document.getElementById('available-tags');
+        this.searchInput = document.getElementById('search-input');
+        this.searchStats = document.getElementById('search-stats');
+        this.searchClear = document.getElementById('search-clear');
         
         // Stats Elements
         this.unreadCount = document.getElementById('unread-count');
@@ -109,6 +113,29 @@ class ReadingTracker {
                     this.addTag(this.tagsInput.value.trim());
                 }
             });
+        }
+
+        // Search input
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', () => {
+                this.searchQuery = this.searchInput.value.trim().toLowerCase();
+                this.toggleSearchClear();
+                this.renderItems();
+            });
+
+            // Clear search with Escape key
+            this.searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.clearSearch();
+                }
+            });
+
+            // Clear button click
+            if (this.searchClear) {
+                this.searchClear.addEventListener('click', () => {
+                    this.clearSearch();
+                });
+            }
         }
     }
     
@@ -312,6 +339,24 @@ class ReadingTracker {
                 Array.from(this.activeTags).every(tag => item.tags.includes(tag))
             );
         }
+
+        // Filter by search query
+        if (this.searchQuery) {
+            const query = this.searchQuery.toLowerCase();
+            filteredItems = filteredItems.filter(item => {
+                const titleMatch = item.title.toLowerCase().includes(query);
+                const urlMatch = item.url.toLowerCase().includes(query);
+                const tagsMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
+                return titleMatch || urlMatch || tagsMatch;
+            });
+
+            // Update search stats
+            if (this.searchStats) {
+                this.searchStats.textContent = `${filteredItems.length} results`;
+            }
+        } else if (this.searchStats) {
+            this.searchStats.textContent = '';
+        }
         
         return filteredItems;
     }
@@ -351,17 +396,39 @@ class ReadingTracker {
         }
     }
     
+    highlightSearchMatches(text, type = 'text') {
+        if (!this.searchQuery) return text;
+        
+        const query = this.searchQuery.toLowerCase();
+        if (!text) return '';
+
+        if (type === 'url') {
+            // For URLs, only highlight the domain and path parts
+            const url = new URL(text);
+            const domain = url.hostname;
+            const path = url.pathname + url.search + url.hash;
+            
+            const highlightedDomain = this.highlightSearchMatches(domain);
+            const highlightedPath = this.highlightSearchMatches(path);
+            
+            return `${url.protocol}//${highlightedDomain}${highlightedPath}`;
+        }
+
+        const regex = new RegExp(`(${query})`, 'gi');
+        return text.replace(regex, '<span class="highlight-match">$1</span>');
+    }
+    
     createItemElement(item) {
         const li = document.createElement('li');
         li.className = 'reading-item';
         li.dataset.id = item.id;
         
         const title = item.url 
-            ? `<h3><a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.title}</a></h3>`
-            : `<h3>${item.title}</h3>`;
+            ? `<h3><a href="${item.url}" target="_blank" rel="noopener noreferrer">${this.highlightSearchMatches(item.title)}</a></h3>`
+            : `<h3>${this.highlightSearchMatches(item.title)}</h3>`;
             
         const url = item.url 
-            ? `<span class="item-url">${item.url}</span>`
+            ? `<span class="item-url">${this.highlightSearchMatches(item.url, 'url')}</span>`
             : '';
             
         const statusEmoji = {
@@ -372,10 +439,10 @@ class ReadingTracker {
             
         const statusBadge = `<span class="status-badge status-${item.status}">${statusEmoji[item.status]} ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}</span>`;
         
-        // Create tags HTML
+        // Create tags HTML with highlighted matches
         const tagsHtml = item.tags.length > 0 
             ? `<div class="item-tags">
-                ${item.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+                ${item.tags.map(tag => `<span class="tag">#${this.highlightSearchMatches(tag)}</span>`).join('')}
                </div>`
             : '';
         
@@ -442,6 +509,22 @@ class ReadingTracker {
                 }, index * 50);
             });
         });
+    }
+
+    clearSearch() {
+        if (this.searchInput) {
+            this.searchInput.value = '';
+            this.searchQuery = '';
+            this.toggleSearchClear();
+            this.renderItems();
+            this.searchInput.focus();
+        }
+    }
+
+    toggleSearchClear() {
+        if (this.searchClear) {
+            this.searchClear.classList.toggle('visible', this.searchInput.value.length > 0);
+        }
     }
 }
 

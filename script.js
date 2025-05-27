@@ -11,6 +11,8 @@ class ReadingItem {
         this.timeSpent = 0; // Time spent in seconds
         this.lastRead = null; // Last reading session timestamp
         this.readingSessions = []; // Array to store reading sessions
+        this.priority = 'medium'; // Priority level: low, medium, high
+        this.notes = ''; // Add notes property
     }
 }
 
@@ -55,6 +57,7 @@ class ReadingTracker {
         this.allTags = new Set();
         this.currentTags = new Set();
         this.searchQuery = '';
+        this.activePriorities = new Set(); // Track active priority filters
         
         // Initialize theme manager
         this.themeManager = new ThemeManager();
@@ -93,15 +96,126 @@ class ReadingTracker {
         this.chart = null;
         this.loadChartJS();
         
+        // Initialize elements
+        this.priorityButtons = document.querySelectorAll('.priority-btn');
+        
+        this.filterPanel = document.getElementById('filter-panel');
+        this.filterToggle = document.getElementById('filter-toggle');
+        this.activeFilterTags = document.getElementById('active-filter-tags');
+        
+        // Initialize achievement manager
+        this.achievementManager = new AchievementManager(this);
+        
+        // Add achievements panel elements
+        this.achievementsPanel = document.getElementById('achievements-panel');
+        this.achievementsToggle = document.getElementById('achievements-toggle');
+        this.achievementsGrid = document.getElementById('achievements-grid');
+        
+        // Add new filter state properties
+        this.sortBy = 'date-added-desc';
+        this.progressFilter = {
+            min: 0,
+            max: 100
+        };
+        this.dateFilter = {
+            from: null,
+            to: null
+        };
+        this.tagsMode = 'any';
+        
+        // Add new filter elements
+        this.sortSelect = document.getElementById('sort-select');
+        this.minProgress = document.getElementById('min-progress');
+        this.maxProgress = document.getElementById('max-progress');
+        this.minProgressValue = document.getElementById('min-progress-value');
+        this.maxProgressValue = document.getElementById('max-progress-value');
+        this.dateFrom = document.getElementById('date-from');
+        this.dateTo = document.getElementById('date-to');
+        this.tagsMode = document.querySelector('input[name="tags-mode"]:checked')?.value || 'any';
+        this.resetFiltersBtn = document.getElementById('reset-filters');
+        this.applyFiltersBtn = document.getElementById('apply-filters');
+        
+        // Add edit modal elements
+        this.editModal = document.getElementById('edit-modal');
+        this.editForm = document.getElementById('edit-item-form');
+        this.editTitle = document.getElementById('edit-title');
+        this.editUrl = document.getElementById('edit-url');
+        this.editTags = document.getElementById('edit-tags');
+        this.editTagsPreview = document.getElementById('edit-tags-preview');
+        this.currentEditId = null;
+        this.editCurrentTags = new Set();
+        
+        // Add editor elements
+        this.editNotes = document.getElementById('edit-notes');
+        this.editorButtons = document.querySelectorAll('.editor-btn');
+        
         this.initialize();
     }
     
     initialize() {
         this.loadItems();
         this.setupEventListeners();
+        this.setupEditor();
         this.renderItems();
         this.updateStats();
         this.updateTagsFilter();
+        this.updateActiveFilters();
+        this.renderAchievements();
+    }
+    
+    setupEditor() {
+        if (!this.editNotes || !this.editorButtons) return;
+        
+        // Handle toolbar buttons
+        this.editorButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const format = button.dataset.format;
+                this.executeFormat(format);
+                button.classList.toggle('active');
+            });
+        });
+        
+        // Handle keyboard shortcuts
+        this.editNotes.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'b':
+                        e.preventDefault();
+                        this.executeFormat('bold');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        this.executeFormat('italic');
+                        break;
+                }
+            }
+        });
+    }
+    
+    executeFormat(format) {
+        switch(format) {
+            case 'h1':
+            case 'h2':
+            case 'h3':
+                document.execCommand('formatBlock', false, format);
+                break;
+            case 'bold':
+                document.execCommand('bold', false);
+                break;
+            case 'italic':
+                document.execCommand('italic', false);
+                break;
+            case 'bullet':
+                document.execCommand('insertUnorderedList', false);
+                break;
+            case 'number':
+                document.execCommand('insertOrderedList', false);
+                break;
+            case 'quote':
+                document.execCommand('formatBlock', false, 'blockquote');
+                break;
+        }
+        this.editNotes.focus();
     }
     
     setupEventListeners() {
@@ -164,6 +278,136 @@ class ReadingTracker {
         if (this.statsClose) {
             this.statsClose.addEventListener('click', () => this.toggleStatsPanel());
         }
+
+        // Priority filter buttons
+        this.priorityButtons.forEach(button => {
+            button.addEventListener('click', () => this.togglePriorityFilter(button.dataset.priority));
+        });
+
+        // Filter panel toggle
+        if (this.filterToggle) {
+            this.filterToggle.addEventListener('click', () => this.toggleFilterPanel());
+        }
+
+        // Achievements panel toggle
+        if (this.achievementsToggle) {
+            this.achievementsToggle.addEventListener('click', () => this.toggleAchievementsPanel());
+        }
+        
+        // Close button for achievements panel
+        const achievementsClose = this.achievementsPanel?.querySelector('.stats-close');
+        if (achievementsClose) {
+            achievementsClose.addEventListener('click', () => this.toggleAchievementsPanel());
+        }
+
+        // Sort select
+        if (this.sortSelect) {
+            this.sortSelect.addEventListener('change', () => {
+                this.sortBy = this.sortSelect.value;
+                this.renderItems();
+            });
+        }
+        
+        // Progress range inputs
+        if (this.minProgress && this.maxProgress) {
+            this.minProgress.addEventListener('input', () => {
+                const value = parseInt(this.minProgress.value);
+                this.progressFilter.min = value;
+                this.minProgressValue.textContent = `${value}%`;
+                if (value > parseInt(this.maxProgress.value)) {
+                    this.maxProgress.value = value;
+                    this.maxProgressValue.textContent = `${value}%`;
+                    this.progressFilter.max = value;
+                }
+            });
+            
+            this.maxProgress.addEventListener('input', () => {
+                const value = parseInt(this.maxProgress.value);
+                this.progressFilter.max = value;
+                this.maxProgressValue.textContent = `${value}%`;
+                if (value < parseInt(this.minProgress.value)) {
+                    this.minProgress.value = value;
+                    this.minProgressValue.textContent = `${value}%`;
+                    this.progressFilter.min = value;
+                }
+            });
+        }
+        
+        // Date filters
+        if (this.dateFrom) {
+            this.dateFrom.addEventListener('change', () => {
+                this.dateFilter.from = this.dateFrom.value ? new Date(this.dateFrom.value) : null;
+            });
+        }
+        
+        if (this.dateTo) {
+            this.dateTo.addEventListener('change', () => {
+                this.dateFilter.to = this.dateTo.value ? new Date(this.dateTo.value) : null;
+            });
+        }
+        
+        // Tags mode
+        document.querySelectorAll('input[name="tags-mode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.tagsMode = e.target.value;
+            });
+        });
+        
+        // Reset filters
+        if (this.resetFiltersBtn) {
+            this.resetFiltersBtn.addEventListener('click', () => this.resetFilters());
+        }
+        
+        // Apply filters
+        if (this.applyFiltersBtn) {
+            this.applyFiltersBtn.addEventListener('click', () => this.renderItems());
+        }
+
+        // Edit modal events
+        if (this.editModal) {
+            // Close modal on clicking outside
+            this.editModal.addEventListener('click', (e) => {
+                if (e.target === this.editModal) {
+                    this.closeEditModal();
+                }
+            });
+            
+            // Close button
+            const closeBtn = this.editModal.querySelector('.modal-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => this.closeEditModal());
+            }
+            
+            // Cancel button
+            const cancelBtn = this.editModal.querySelector('[data-action="cancel"]');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => this.closeEditModal());
+            }
+        }
+        
+        // Edit form submission
+        if (this.editForm) {
+            this.editForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleEditSubmit();
+            });
+        }
+        
+        // Edit tags input
+        if (this.editTags) {
+            this.editTags.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    this.addEditTag(this.editTags.value.trim());
+                }
+            });
+            
+            this.editTags.addEventListener('blur', () => {
+                if (this.editTags.value.trim()) {
+                    this.addEditTag(this.editTags.value.trim());
+                }
+            });
+        }
     }
     
     addTag(tagName) {
@@ -207,11 +451,16 @@ class ReadingTracker {
         const title = this.titleInput.value.trim();
         const url = this.urlInput.value.trim();
         const tags = Array.from(this.currentTags);
+        const priority = document.querySelector('input[name="priority"]:checked').value;
         
         if (title) {
             const newItem = new ReadingItem(title, url, tags);
+            newItem.priority = priority;
             this.items.unshift(newItem);
             this.saveItems();
+            
+            // Check achievements after adding item
+            this.achievementManager.checkAchievements();
             
             // Create and append the new item with animation
             const itemElement = this.createItemElement(newItem);
@@ -231,7 +480,7 @@ class ReadingTracker {
                 itemElement.style.transform = 'translateY(0)';
             });
             
-            // Reset form and tags
+            // Reset form
             this.form.reset();
             this.currentTags.clear();
             this.renderTagsPreview();
@@ -295,6 +544,7 @@ class ReadingTracker {
         }
         this.updateTagsFilter();
         this.renderItems();
+        this.updateActiveFilters();
     }
     
     loadItems() {
@@ -339,6 +589,7 @@ class ReadingTracker {
         setTimeout(() => {
             this.renderItems();
         }, 200);
+        this.updateActiveFilters();
     }
     
     updateStats() {
@@ -514,34 +765,92 @@ class ReadingTracker {
     getFilteredItems() {
         let filteredItems = this.items;
         
-        // Filter by status
+        // Status filter
         if (this.currentFilter !== 'all') {
             filteredItems = filteredItems.filter(item => item.status === this.currentFilter);
         }
         
-        // Filter by active tags
-        if (this.activeTags.size > 0) {
+        // Priority filter
+        if (this.activePriorities.size > 0) {
             filteredItems = filteredItems.filter(item => 
-                Array.from(this.activeTags).every(tag => item.tags.includes(tag))
+                this.activePriorities.has(item.priority)
             );
         }
-
-        // Filter by search query
+        
+        // Progress filter
+        filteredItems = filteredItems.filter(item => {
+            const progress = item.progress || 0;
+            return progress >= this.progressFilter.min && progress <= this.progressFilter.max;
+        });
+        
+        // Date filter
+        if (this.dateFilter.from || this.dateFilter.to) {
+            filteredItems = filteredItems.filter(item => {
+                const itemDate = new Date(item.dateAdded);
+                if (this.dateFilter.from && itemDate < this.dateFilter.from) return false;
+                if (this.dateFilter.to && itemDate > this.dateFilter.to) return false;
+                return true;
+            });
+        }
+        
+        // Tags filter
+        if (this.activeTags.size > 0) {
+            filteredItems = filteredItems.filter(item => {
+                const itemTags = new Set(item.tags);
+                const activeTagsArray = Array.from(this.activeTags);
+                
+                if (this.tagsMode === 'any') {
+                    return activeTagsArray.some(tag => itemTags.has(tag));
+                } else { // 'all' mode
+                    return activeTagsArray.every(tag => itemTags.has(tag));
+                }
+            });
+        }
+        
+        // Search filter
         if (this.searchQuery) {
             const query = this.searchQuery.toLowerCase();
             filteredItems = filteredItems.filter(item => {
                 const titleMatch = item.title.toLowerCase().includes(query);
-                const urlMatch = item.url.toLowerCase().includes(query);
+                const urlMatch = item.url?.toLowerCase().includes(query);
                 const tagsMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
                 return titleMatch || urlMatch || tagsMatch;
             });
-
-            // Update search stats
-            if (this.searchStats) {
-                this.searchStats.textContent = `${filteredItems.length} results`;
+        }
+        
+        // Sort items
+        filteredItems.sort((a, b) => {
+            switch (this.sortBy) {
+                case 'date-added-desc':
+                    return new Date(b.dateAdded) - new Date(a.dateAdded);
+                case 'date-added-asc':
+                    return new Date(a.dateAdded) - new Date(b.dateAdded);
+                case 'priority-desc':
+                    const priorityOrder = { high: 2, medium: 1, low: 0 };
+                    return priorityOrder[b.priority] - priorityOrder[a.priority];
+                case 'priority-asc':
+                    const priorityOrderAsc = { low: 2, medium: 1, high: 0 };
+                    return priorityOrderAsc[b.priority] - priorityOrderAsc[a.priority];
+                case 'progress-desc':
+                    return (b.progress || 0) - (a.progress || 0);
+                case 'progress-asc':
+                    return (a.progress || 0) - (b.progress || 0);
+                case 'time-spent-desc':
+                    return (b.timeSpent || 0) - (a.timeSpent || 0);
+                case 'time-spent-asc':
+                    return (a.timeSpent || 0) - (b.timeSpent || 0);
+                case 'title-asc':
+                    return a.title.localeCompare(b.title);
+                case 'title-desc':
+                    return b.title.localeCompare(a.title);
+                default:
+                    return 0;
             }
-        } else if (this.searchStats) {
-            this.searchStats.textContent = '';
+        });
+        
+        // Update search stats
+        if (this.searchStats) {
+            this.searchStats.textContent = this.searchQuery ? `${filteredItems.length} results` : '';
         }
         
         return filteredItems;
@@ -699,6 +1008,12 @@ class ReadingTracker {
             li.dataset.activeSession = 'true';
         }
         
+        const priorityIcons = {
+            low: '🔽',
+            medium: '➡️',
+            high: '🔼'
+        };
+        
         const title = item.url 
             ? `<div class="item-title"><a href="${item.url}" target="_blank" rel="noopener noreferrer">${this.highlightSearchMatches(item.title)}</a></div>`
             : `<div class="item-title">${this.highlightSearchMatches(item.title)}</div>`;
@@ -728,6 +1043,12 @@ class ReadingTracker {
         const progressBar = `
             <div class="progress-container">
                 <div class="progress-bar">
+                    <input type="range" 
+                        class="progress-slider" 
+                        value="${item.progress || 0}" 
+                        min="0" 
+                        max="100"
+                        aria-label="Reading progress slider">
                     <div class="progress-fill" style="width: ${item.progress}%"></div>
                 </div>
                 <input type="number" 
@@ -741,15 +1062,57 @@ class ReadingTracker {
 
         const readingStats = `
             <div class="reading-stats">
-                <span class="reading-time">${this.formatTime(totalTime)}</span>
+                <span class="reading-time">
+                    ${isActiveSession ? 
+                        `<span class="active-timer" data-timer="true">⏱️ Current session: ${this.formatTime(currentSessionTime)}</span>` 
+                        : ''
+                    }
+                    <span class="total-time">📚 Total time: ${this.formatTime(totalTime)}</span>
+                </span>
                 ${item.lastRead ? `<span class="last-read">Last read: ${this.formatDate(item.lastRead)}</span>` : ''}
             </div>`;
+        
+        const notesHtml = item.notes ? `
+            <div class="item-notes">
+                <div class="notes-toggle">
+                    <span class="notes-toggle-icon">▼</span>
+                    <span>Notes & Comments</span>
+                </div>
+                <div class="notes-content">
+                    <div class="notes-preview">
+                        ${item.notes}
+                    </div>
+                </div>
+            </div>
+        ` : '';
         
         const tagsHtml = item.tags.length > 0 
             ? `<div class="item-tags">
                 ${item.tags.map(tag => `<span class="tag">#${this.highlightSearchMatches(tag)}</span>`).join('')}
                </div>`
             : '';
+        
+        const priorityDropdown = `
+            <div class="priority-dropdown">
+                <select class="priority-select" data-action="change-priority">
+                    <option value="low" ${item.priority === 'low' ? 'selected' : ''}>🔽 Low</option>
+                    <option value="medium" ${item.priority === 'medium' ? 'selected' : ''}>➡️ Medium</option>
+                    <option value="high" ${item.priority === 'high' ? 'selected' : ''}>🔼 High</option>
+                </select>
+            </div>`;
+        
+        const itemActions = `
+            <div class="item-actions">
+                <button class="btn btn-edit" data-action="edit">
+                    <span>✏️</span>
+                    Edit
+                </button>
+                ${!isActiveSession && item.status !== 'completed' ? 
+                    `<button class="btn btn-status btn-reading" data-action="start-reading">📖 Start Reading Session</button>` : ''}
+                ${isActiveSession ? 
+                    `<button class="btn btn-status btn-completed" data-action="end-reading">⏸️ End Reading Session</button>` : ''}
+                <button class="btn btn-status btn-delete" data-action="delete">🗑️ Delete</button>
+            </div>`;
         
         li.innerHTML = `
             <div class="item-main-content">
@@ -758,18 +1121,16 @@ class ReadingTracker {
                         ${title}
                         ${url}
                     </div>
-                    ${statusDropdown}
+                    <div class="item-controls">
+                        ${priorityDropdown}
+                        ${statusDropdown}
+                    </div>
                 </div>
                 ${tagsHtml}
                 ${progressBar}
                 ${readingStats}
-                <div class="item-actions">
-                    ${!isActiveSession && item.status !== 'completed' ? 
-                        `<button class="btn btn-status btn-reading" data-action="start-reading">📖 Start Reading Session</button>` : ''}
-                    ${isActiveSession ? 
-                        `<button class="btn btn-status btn-completed" data-action="end-reading">⏸️ End Reading Session</button>` : ''}
-                    <button class="btn btn-status btn-delete" data-action="delete">🗑️ Delete</button>
-                </div>
+                ${notesHtml}
+                ${itemActions}
             </div>
         `;
         
@@ -801,12 +1162,56 @@ class ReadingTracker {
             });
         }
 
-        // Add event listener for progress input
+        // Add event listener for progress slider
+        const progressSlider = li.querySelector('.progress-slider');
+        const progressFill = li.querySelector('.progress-fill');
         const progressInput = li.querySelector('.progress-input');
+        const progressLabel = li.querySelector('.progress-label');
+
+        if (progressSlider) {
+            progressSlider.addEventListener('input', (e) => {
+                const progress = parseInt(e.target.value, 10);
+                progressFill.style.width = `${progress}%`;
+                progressInput.value = progress;
+                progressLabel.textContent = `${progress}%`;
+            });
+
+            progressSlider.addEventListener('change', (e) => {
+                const progress = parseInt(e.target.value, 10);
+                this.updateProgress(item.id, progress);
+            });
+        }
+
+        // Update existing progress input event listener
         if (progressInput) {
             progressInput.addEventListener('change', (e) => {
                 const progress = parseInt(e.target.value, 10);
+                progressSlider.value = progress;
+                progressFill.style.width = `${progress}%`;
+                progressLabel.textContent = `${progress}%`;
                 this.updateProgress(item.id, progress);
+            });
+        }
+        
+        // Add priority change listener
+        const prioritySelect = li.querySelector('.priority-select');
+        if (prioritySelect) {
+            prioritySelect.addEventListener('change', (e) => {
+                this.handlePriorityChange(item.id, e.target.value);
+            });
+        }
+        
+        // Add edit button event listener
+        li.querySelector('[data-action="edit"]').addEventListener('click', () => {
+            this.openEditModal(item);
+        });
+        
+        // Add notes toggle functionality
+        const notesToggle = li.querySelector('.notes-toggle');
+        if (notesToggle) {
+            notesToggle.addEventListener('click', () => {
+                const notesSection = notesToggle.closest('.item-notes');
+                notesSection.classList.toggle('notes-collapsed');
             });
         }
         
@@ -915,6 +1320,9 @@ class ReadingTracker {
             this.activeReadingSession = null;
             this.saveItems();
             this.renderItems();
+            
+            // Check achievements after ending session
+            this.achievementManager.checkAchievements();
         }
     }
 
@@ -924,10 +1332,18 @@ class ReadingTracker {
             const currentSessionTime = Math.floor((Date.now() - this.activeReadingSession.startTime) / 1000);
             const totalTime = (item.timeSpent || 0) + currentSessionTime;
             
-            // Update the time display in real-time
-            const timeDisplay = document.querySelector(`[data-id="${itemId}"] .reading-time`);
-            if (timeDisplay) {
-                timeDisplay.textContent = this.formatTime(totalTime);
+            // Update the time displays in real-time
+            const itemElement = document.querySelector(`[data-id="${itemId}"]`);
+            if (itemElement) {
+                const activeTimer = itemElement.querySelector('.active-timer');
+                const totalTimeDisplay = itemElement.querySelector('.total-time');
+                
+                if (activeTimer) {
+                    activeTimer.textContent = `⏱️ Current session: ${this.formatTime(currentSessionTime)}`;
+                }
+                if (totalTimeDisplay) {
+                    totalTimeDisplay.textContent = `📚 Total time: ${this.formatTime(totalTime)}`;
+                }
             }
         }
     }
@@ -942,6 +1358,9 @@ class ReadingTracker {
             }
             this.saveItems();
             this.renderItems();
+            
+            // Check achievements after updating progress
+            this.achievementManager.checkAchievements();
         }
     }
 
@@ -981,6 +1400,360 @@ class ReadingTracker {
         if (this.statsPanel.classList.contains('show')) {
             this.updateStats();
         }
+    }
+
+    togglePriorityFilter(priority) {
+        const button = document.querySelector(`.priority-btn[data-priority="${priority}"]`);
+        
+        if (this.activePriorities.has(priority)) {
+            this.activePriorities.delete(priority);
+            button.classList.remove('active');
+        } else {
+            this.activePriorities.add(priority);
+            button.classList.add('active');
+        }
+        
+        this.renderItems();
+        this.updateActiveFilters();
+    }
+
+    handlePriorityChange(id, newPriority) {
+        const item = this.items.find(item => item.id === id);
+        if (item) {
+            const itemElement = document.querySelector(`[data-id="${id}"]`);
+            if (itemElement) {
+                // Animate priority change
+                itemElement.style.transition = 'all 0.3s ease';
+                itemElement.style.transform = 'scale(0.95)';
+                itemElement.style.opacity = '0.5';
+                
+                setTimeout(() => {
+                    item.priority = newPriority;
+                    this.saveItems();
+                    this.renderItems();
+                }, 300);
+            }
+        }
+    }
+
+    toggleFilterPanel() {
+        this.filterPanel.classList.toggle('show');
+        this.filterToggle.classList.toggle('active');
+        this.updateActiveFilters();
+    }
+
+    updateActiveFilters() {
+        if (!this.activeFilterTags) return;
+        
+        const activeFilters = [];
+        
+        // Status filter
+        if (this.currentFilter !== 'all') {
+            activeFilters.push({
+                type: 'status',
+                value: this.currentFilter,
+                icon: this.currentFilter === 'unread' ? '📥' : this.currentFilter === 'reading' ? '📖' : '✅'
+            });
+        }
+        
+        // Priority filters
+        this.activePriorities.forEach(priority => {
+            activeFilters.push({
+                type: 'priority',
+                value: priority,
+                icon: priority === 'low' ? '🔽' : priority === 'medium' ? '➡️' : '🔼'
+            });
+        });
+        
+        // Progress filter
+        if (this.progressFilter.min > 0 || this.progressFilter.max < 100) {
+            activeFilters.push({
+                type: 'progress',
+                value: `${this.progressFilter.min}% - ${this.progressFilter.max}%`,
+                icon: '📊'
+            });
+        }
+        
+        // Date filter
+        if (this.dateFilter.from || this.dateFilter.to) {
+            const dateRange = [];
+            if (this.dateFilter.from) dateRange.push(this.formatDate(this.dateFilter.from));
+            if (this.dateFilter.to) dateRange.push(this.formatDate(this.dateFilter.to));
+            activeFilters.push({
+                type: 'date',
+                value: dateRange.join(' - '),
+                icon: '📅'
+            });
+        }
+        
+        // Tags filter
+        this.activeTags.forEach(tag => {
+            activeFilters.push({
+                type: 'tag',
+                value: tag,
+                icon: '#'
+            });
+        });
+        
+        if (activeFilters.length === 0) {
+            this.activeFilterTags.innerHTML = 'No active filters';
+            return;
+        }
+        
+        this.activeFilterTags.innerHTML = activeFilters.map(filter => `
+            <span class="active-filter-tag">
+                ${filter.icon} ${filter.value}
+                <span class="remove" data-type="${filter.type}" data-value="${filter.value}">×</span>
+            </span>
+        `).join('');
+        
+        // Add event listeners for remove buttons
+        this.activeFilterTags.querySelectorAll('.remove').forEach(removeBtn => {
+            removeBtn.addEventListener('click', (e) => {
+                const type = e.target.dataset.type;
+                const value = e.target.dataset.value;
+                this.removeFilter(type, value);
+            });
+        });
+    }
+    
+    removeFilter(type, value) {
+        switch (type) {
+            case 'status':
+                this.handleFilter('all');
+                break;
+            case 'priority':
+                this.togglePriorityFilter(value);
+                break;
+            case 'progress':
+                this.progressFilter = { min: 0, max: 100 };
+                if (this.minProgress && this.maxProgress) {
+                    this.minProgress.value = 0;
+                    this.maxProgress.value = 100;
+                    this.minProgressValue.textContent = '0%';
+                    this.maxProgressValue.textContent = '100%';
+                }
+                break;
+            case 'date':
+                this.dateFilter = { from: null, to: null };
+                if (this.dateFrom && this.dateTo) {
+                    this.dateFrom.value = '';
+                    this.dateTo.value = '';
+                }
+                break;
+            case 'tag':
+                this.toggleTagFilter(value);
+                break;
+        }
+        
+        this.renderItems();
+    }
+    
+    toggleAchievementsPanel() {
+        this.achievementsPanel.classList.toggle('show');
+        if (this.achievementsPanel.classList.contains('show')) {
+            this.renderAchievements();
+        }
+    }
+    
+    renderAchievements() {
+        if (!this.achievementsGrid) return;
+        
+        const progress = this.achievementManager.getProgress();
+        
+        // Update level info
+        const levelBadge = document.querySelector('.level-badge');
+        const levelTitle = document.querySelector('.level-title');
+        const levelPoints = document.querySelector('.level-points');
+        const levelProgressFill = document.querySelector('.level-progress-fill');
+        
+        if (levelBadge) levelBadge.textContent = progress.level;
+        if (levelTitle) levelTitle.textContent = `Level ${progress.level}`;
+        if (levelPoints) {
+            const pointsInCurrentLevel = progress.points % 100;
+            levelPoints.textContent = `${pointsInCurrentLevel} / 100 points`;
+            if (levelProgressFill) {
+                levelProgressFill.style.width = `${pointsInCurrentLevel}%`;
+            }
+        }
+        
+        // Render achievement cards
+        this.achievementsGrid.innerHTML = this.achievementManager.achievements
+            .map(achievement => `
+                <div class="achievement-card ${achievement.earned ? 'earned' : 'locked'}">
+                    <div class="achievement-icon">${achievement.icon}</div>
+                    <div class="achievement-info">
+                        <div class="achievement-title">${achievement.title}</div>
+                        <div class="achievement-description">${achievement.description}</div>
+                        <div class="achievement-meta">
+                            <div class="achievement-points">+${achievement.points} points</div>
+                            ${achievement.earned 
+                                ? `<div class="achievement-date">Earned ${this.formatDate(achievement.earnedDate)}</div>`
+                                : '<div class="achievement-date">Locked</div>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            `)
+            .join('');
+    }
+
+    resetFilters() {
+        // Reset status filter
+        this.currentFilter = 'all';
+        this.filterButtons.forEach(button => {
+            button.classList.toggle('active', button.dataset.filter === 'all');
+        });
+        
+        // Reset priority filters
+        this.activePriorities.clear();
+        document.querySelectorAll('.priority-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Reset progress filters
+        if (this.minProgress && this.maxProgress) {
+            this.minProgress.value = 0;
+            this.maxProgress.value = 100;
+            this.minProgressValue.textContent = '0%';
+            this.maxProgressValue.textContent = '100%';
+            this.progressFilter = { min: 0, max: 100 };
+        }
+        
+        // Reset date filters
+        if (this.dateFrom && this.dateTo) {
+            this.dateFrom.value = '';
+            this.dateTo.value = '';
+            this.dateFilter = { from: null, to: null };
+        }
+        
+        // Reset tags
+        this.activeTags.clear();
+        this.updateTagsFilter();
+        
+        // Reset tags mode
+        const anyRadio = document.querySelector('input[name="tags-mode"][value="any"]');
+        if (anyRadio) {
+            anyRadio.checked = true;
+            this.tagsMode = 'any';
+        }
+        
+        // Reset sort
+        if (this.sortSelect) {
+            this.sortSelect.value = 'date-added-desc';
+            this.sortBy = 'date-added-desc';
+        }
+        
+        // Update UI and render items
+        this.updateActiveFilters();
+        this.renderItems();
+    }
+
+    openEditModal(item) {
+        this.currentEditId = item.id;
+        
+        // Set form values
+        this.editTitle.value = item.title;
+        this.editUrl.value = item.url || '';
+        
+        // Set notes content
+        this.editNotes.innerHTML = item.notes || '';
+        
+        // Set priority
+        const priorityInput = document.querySelector(`input[name="edit-priority"][value="${item.priority}"]`);
+        if (priorityInput) {
+            priorityInput.checked = true;
+        }
+        
+        // Set tags
+        this.editCurrentTags = new Set(item.tags);
+        this.renderEditTagsPreview();
+        
+        // Show modal with animation
+        this.editModal.classList.add('show');
+        this.editTitle.focus();
+        
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+    }
+    
+    closeEditModal() {
+        this.editModal.classList.remove('show');
+        this.currentEditId = null;
+        this.editCurrentTags.clear();
+        this.editForm.reset();
+        this.editNotes.innerHTML = '';
+        document.body.style.overflow = '';
+    }
+    
+    addEditTag(tagName) {
+        if (!tagName) return;
+        
+        // Remove any special characters and convert to lowercase
+        tagName = tagName.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        
+        if (tagName && !this.editCurrentTags.has(tagName)) {
+            this.editCurrentTags.add(tagName);
+            this.renderEditTagsPreview();
+        }
+        
+        this.editTags.value = '';
+    }
+    
+    renderEditTagsPreview() {
+        if (!this.editTagsPreview) return;
+        
+        this.editTagsPreview.innerHTML = '';
+        this.editCurrentTags.forEach(tag => {
+            const tagElement = document.createElement('span');
+            tagElement.className = 'tag';
+            tagElement.innerHTML = `
+                ${tag}
+                <span class="remove-tag" data-tag="${tag}">×</span>
+            `;
+            
+            tagElement.querySelector('.remove-tag').addEventListener('click', () => {
+                this.editCurrentTags.delete(tag);
+                this.renderEditTagsPreview();
+            });
+            
+            this.editTagsPreview.appendChild(tagElement);
+        });
+    }
+    
+    handleEditSubmit() {
+        const item = this.items.find(item => item.id === this.currentEditId);
+        if (!item) return;
+        
+        // Get form values
+        const newTitle = this.editTitle.value.trim();
+        const newUrl = this.editUrl.value.trim();
+        const newPriority = document.querySelector('input[name="edit-priority"]:checked')?.value || 'medium';
+        const newTags = Array.from(this.editCurrentTags);
+        const newNotes = this.editNotes.innerHTML;
+        
+        // Update item
+        item.title = newTitle;
+        item.url = newUrl;
+        item.priority = newPriority;
+        item.tags = newTags;
+        item.notes = newNotes;
+        
+        // Save and update UI
+        this.saveItems();
+        this.renderItems();
+        
+        // Show success feedback
+        const saveBtn = this.editForm.querySelector('button[type="submit"]');
+        const originalText = saveBtn.textContent;
+        saveBtn.innerHTML = '✅ Saved!';
+        saveBtn.disabled = true;
+        
+        setTimeout(() => {
+            this.closeEditModal();
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }, 1000);
     }
 }
 

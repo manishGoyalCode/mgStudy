@@ -18,7 +18,10 @@
             </div>
         </div>
         <div class="nav-right">
-            <button id="stats-toggle" class="stats-toggle" aria-label="Toggle statistics">
+            <button id="achievements-toggle" class="stats-toggle" title="View Achievements">
+                🏆
+            </button>
+            <button id="stats-toggle" class="stats-toggle" title="View Statistics">
                 📊
             </button>
             <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
@@ -91,6 +94,21 @@
                         <div id="tags-preview" class="tags-preview"></div>
                     </div>
                 </div>
+                <div class="form-group">
+                    <div class="priority-selector">
+                        <label for="priority">Priority:</label>
+                        <div class="priority-options">
+                            <input type="radio" id="priority-low" name="priority" value="low">
+                            <label for="priority-low" class="priority-label priority-low">🔽 Low</label>
+                            
+                            <input type="radio" id="priority-medium" name="priority" value="medium" checked>
+                            <label for="priority-medium" class="priority-label priority-medium">➡️ Medium</label>
+                            
+                            <input type="radio" id="priority-high" name="priority" value="high">
+                            <label for="priority-high" class="priority-label priority-high">🔼 High</label>
+                        </div>
+                    </div>
+                </div>
                 <button type="submit" class="btn btn-primary">+ Add Item</button>
             </form>
         </section>
@@ -105,16 +123,105 @@
         </section>
 
         <section class="filter-section">
-            <div class="filter-buttons">
-                <button class="btn filter-btn active" data-filter="all">👀 All</button>
-                <button class="btn filter-btn" data-filter="unread">📥 Unread</button>
-                <button class="btn filter-btn" data-filter="reading">📖 Reading</button>
-                <button class="btn filter-btn" data-filter="completed">✅ Completed</button>
+            <div class="filter-header">
+                <div class="active-filters" id="active-filters">
+                    <span class="active-filter-label">Active Filters:</span>
+                    <div class="active-filter-tags" id="active-filter-tags">No active filters</div>
+                </div>
+                <div class="filter-controls">
+                    <div class="sort-dropdown">
+                        <select id="sort-select" class="sort-select">
+                            <option value="date-added-desc">Newest First</option>
+                            <option value="date-added-asc">Oldest First</option>
+                            <option value="priority-desc">Priority (High to Low)</option>
+                            <option value="priority-asc">Priority (Low to High)</option>
+                            <option value="progress-desc">Progress (High to Low)</option>
+                            <option value="progress-asc">Progress (Low to High)</option>
+                            <option value="time-spent-desc">Time Spent (Most to Least)</option>
+                            <option value="time-spent-asc">Time Spent (Least to Most)</option>
+                            <option value="title-asc">Title (A to Z)</option>
+                            <option value="title-desc">Title (Z to A)</option>
+                        </select>
+                    </div>
+                    <button class="filter-toggle" id="filter-toggle" aria-label="Toggle filters">
+                        <span class="filter-icon">🎯</span>
+                        <span class="filter-text">Filters</span>
+                    </button>
+                </div>
             </div>
-            <div class="tags-filter">
-                <h3>Filter by Tags</h3>
-                <div id="active-tags" class="active-tags"></div>
-                <div id="available-tags" class="available-tags"></div>
+
+            <div class="filter-panel" id="filter-panel">
+                <div class="filter-group">
+                    <h3>Status</h3>
+                    <div class="filter-buttons">
+                        <button class="btn filter-btn active" data-filter="all">👀 All</button>
+                        <button class="btn filter-btn" data-filter="unread">📥 Unread</button>
+                        <button class="btn filter-btn" data-filter="reading">📖 Reading</button>
+                        <button class="btn filter-btn" data-filter="completed">✅ Completed</button>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <h3>Priority</h3>
+                    <div class="priority-buttons">
+                        <button class="btn priority-btn" data-priority="low">🔽 Low</button>
+                        <button class="btn priority-btn" data-priority="medium">➡️ Medium</button>
+                        <button class="btn priority-btn" data-priority="high">🔼 High</button>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <h3>Progress</h3>
+                    <div class="progress-filter">
+                        <div class="progress-range">
+                            <label>Min Progress:</label>
+                            <input type="range" id="min-progress" min="0" max="100" value="0">
+                            <span class="progress-value" id="min-progress-value">0%</span>
+                        </div>
+                        <div class="progress-range">
+                            <label>Max Progress:</label>
+                            <input type="range" id="max-progress" min="0" max="100" value="100">
+                            <span class="progress-value" id="max-progress-value">100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <h3>Time Range</h3>
+                    <div class="date-filter">
+                        <div class="date-input">
+                            <label>From:</label>
+                            <input type="date" id="date-from">
+                        </div>
+                        <div class="date-input">
+                            <label>To:</label>
+                            <input type="date" id="date-to">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <h3>Tags</h3>
+                    <div class="tags-filter">
+                        <div class="tags-mode">
+                            <label>
+                                <input type="radio" name="tags-mode" value="any" checked>
+                                Match any selected tag
+                            </label>
+                            <label>
+                                <input type="radio" name="tags-mode" value="all">
+                                Match all selected tags
+                            </label>
+                        </div>
+                        <div id="active-tags" class="active-tags"></div>
+                        <div id="available-tags" class="available-tags"></div>
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <button class="btn btn-secondary" id="reset-filters">Reset Filters</button>
+                    <button class="btn btn-primary" id="apply-filters">Apply Filters</button>
+                </div>
             </div>
         </section>
 
@@ -123,6 +230,123 @@
         </section>
     </main>
 
+    <!-- Achievements Panel -->
+    <div id="achievements-panel" class="stats-panel">
+        <div class="stats-header">
+            <h2>Achievements</h2>
+            <button class="stats-close">×</button>
+        </div>
+        <div class="stats-content">
+            <div class="achievements-panel">
+                <div class="achievements-header">
+                    <div class="level-info">
+                        <div class="level-badge">1</div>
+                        <div class="level-details">
+                            <div class="level-title">Level 1</div>
+                            <div class="level-points">0 / 100 points</div>
+                            <div class="level-progress">
+                                <div class="level-progress-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="achievements-grid" id="achievements-grid">
+                    <!-- Achievement cards will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit Reading Item</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-item-form">
+                    <div class="form-group">
+                        <div class="floating-input">
+                            <input type="text" id="edit-title" required>
+                            <label for="edit-title">Title</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="floating-input">
+                            <input type="url" id="edit-url">
+                            <label for="edit-url">URL</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="tags-input-container">
+                            <div class="floating-input">
+                                <input type="text" id="edit-tags" placeholder="Press Enter or comma to add tags">
+                                <label for="edit-tags">Tags</label>
+                            </div>
+                            <div id="edit-tags-preview" class="tags-preview"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="input-label">Priority</label>
+                        <div class="priority-options animated">
+                            <input type="radio" id="edit-priority-low" name="edit-priority" value="low">
+                            <label for="edit-priority-low" class="priority-label priority-low">
+                                <span class="priority-icon">🔽</span>
+                                <span class="priority-text">Low</span>
+                            </label>
+                            
+                            <input type="radio" id="edit-priority-medium" name="edit-priority" value="medium">
+                            <label for="edit-priority-medium" class="priority-label priority-medium">
+                                <span class="priority-icon">➡️</span>
+                                <span class="priority-text">Medium</span>
+                            </label>
+                            
+                            <input type="radio" id="edit-priority-high" name="edit-priority" value="high">
+                            <label for="edit-priority-high" class="priority-label priority-high">
+                                <span class="priority-icon">🔼</span>
+                                <span class="priority-text">High</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="input-label">Notes</label>
+                        <div class="editor-container">
+                            <div class="editor-toolbar">
+                                <button type="button" class="editor-btn" data-format="h1" title="Heading 1">H1</button>
+                                <button type="button" class="editor-btn" data-format="h2" title="Heading 2">H2</button>
+                                <button type="button" class="editor-btn" data-format="h3" title="Heading 3">H3</button>
+                                <span class="editor-separator"></span>
+                                <button type="button" class="editor-btn" data-format="bold" title="Bold">
+                                    <span class="editor-icon">B</span>
+                                </button>
+                                <button type="button" class="editor-btn" data-format="italic" title="Italic">
+                                    <span class="editor-icon"><i>I</i></span>
+                                </button>
+                                <span class="editor-separator"></span>
+                                <button type="button" class="editor-btn" data-format="bullet" title="Bullet List">
+                                    <span class="editor-icon">•</span>
+                                </button>
+                                <button type="button" class="editor-btn" data-format="number" title="Numbered List">
+                                    <span class="editor-icon">1.</span>
+                                </button>
+                                <button type="button" class="editor-btn" data-format="quote" title="Quote">
+                                    <span class="editor-icon">"</span>
+                                </button>
+                            </div>
+                            <div id="edit-notes" class="editor-content" contenteditable="true" placeholder="Add your notes, thoughts, and comments here..."></div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" data-action="cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="achievements.js"></script>
     <script src="script.js"></script>
 </body>
 </html> 

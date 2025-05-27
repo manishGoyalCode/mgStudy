@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-left">
+            <h1>📚 Reading Tracker</h1>
+            <div class="progress-summary">
+                <span class="stat" id="unread-count">📥 Unread: 0</span>
+                <span class="stat" id="reading-count">📖 Reading: 0</span>
+                <span class="stat" id="completed-count">✅ Completed: 0</span>
+            </div>
+        </div>
+        <div class="nav-right">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
+                <span class="theme-toggle-light">🌞</span>
+                <span class="theme-toggle-dark">🌙</span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="add-item-section">
+            <h2>Add New Reading Item</h2>
+            <form id="add-item-form">
+                <div class="form-group">
+                    <input type="text" id="title" placeholder="Enter title (e.g., 'The Art of Programming')" required>
+                </div>
+                <div class="form-group">
+                    <input type="url" id="url" placeholder="Enter URL (e.g., https://example.com/article)">
+                </div>
+                <div class="form-group">
+                    <div class="tags-input-container">
+                        <input type="text" id="tags" placeholder="Add tags (e.g., tech, programming) - press Enter to add">
+                        <div id="tags-preview" class="tags-preview"></div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">+ Add Item</button>
+            </form>
+        </section>
+
+        <section class="filter-section">
+            <div class="filter-buttons">
+                <button class="btn filter-btn active" data-filter="all">👀 All</button>
+                <button class="btn filter-btn" data-filter="unread">📥 Unread</button>
+                <button class="btn filter-btn" data-filter="reading">📖 Reading</button>
+                <button class="btn filter-btn" data-filter="completed">✅ Completed</button>
+            </div>
+            <div class="tags-filter">
+                <h3>Filter by Tags</h3>
+                <div id="active-tags" class="active-tags"></div>
+                <div id="available-tags" class="available-tags"></div>
+            </div>
+        </section>
+
+        <section class="reading-list">
+            <ul id="items-list"></ul>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html> 

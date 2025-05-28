@@ -1,6 +1,6 @@
 {
-  "name": "Reading Tracker",
-  "short_name": "ReadTrack",
+  "name": "PageTrack",
+  "short_name": "PageTrack",
   "description": "Track your reading progress and manage your reading list",
   "start_url": "/",
   "display": "standalone",

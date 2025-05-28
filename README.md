@@ -1,8 +1,8 @@
-# 📚 Reading Tracker
+# 📚 PageTrack
 
 A privacy-focused web application for managing your reading list and tracking reading progress. All data is stored locally on your device.
 
-![Reading Tracker Main Interface](./images/demo.png)
+![PageTrack Main Interface](./images/demo.png)
 
 ## 🌟 Features
 
@@ -28,7 +28,7 @@ A privacy-focused web application for managing your reading list and tracking re
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/reading-tracker.git
+   git clone https://github.com/your-username/pagetrack.git
    ```
 
 2. Open `index.html` in your browser or serve using a local server:

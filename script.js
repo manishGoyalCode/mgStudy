@@ -62,6 +62,15 @@ class ReadingTracker {
         // Initialize theme manager
         this.themeManager = new ThemeManager();
         
+        // Add Item Toggle Elements - Move these up before other DOM elements
+        this.addItemToggle = document.getElementById('add-item-toggle');
+        this.addItemSection = document.querySelector('.add-item-section');
+        
+        // Ensure the add item section is hidden by default
+        if (this.addItemSection) {
+            this.addItemSection.classList.remove('show');
+        }
+        
         // DOM Elements
         this.form = document.getElementById('add-item-form');
         this.titleInput = document.getElementById('title');
@@ -160,6 +169,23 @@ class ReadingTracker {
     }
     
     initialize() {
+        // Add the toggle button event listener first
+        if (this.addItemToggle) {
+            this.addItemToggle.addEventListener('click', () => {
+                this.toggleAddItemSection();
+            });
+        }
+
+        // Add form submit event listener
+        if (this.form) {
+            this.form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleAddItem();
+                // Hide the add item section after successful submission
+                this.hideAddItemSection();
+            });
+        }
+
         this.loadItems();
         this.setupEventListeners();
         this.setupEditor();
@@ -226,14 +252,6 @@ class ReadingTracker {
     }
     
     setupEventListeners() {
-        // Form submission
-        if (this.form) {
-            this.form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleAddItem();
-            });
-        }
-
         // Filter buttons
         this.filterButtons.forEach(button => {
             button.addEventListener('click', () => this.handleFilter(button.dataset.filter));
@@ -1781,6 +1799,37 @@ class ReadingTracker {
         document.getElementById('unread-count').textContent = counts.unread;
         document.getElementById('reading-count').textContent = counts.reading;
         document.getElementById('completed-count').textContent = counts.completed;
+    }
+
+    toggleAddItemSection() {
+        if (!this.addItemSection || !this.addItemToggle) return;
+        
+        const isVisible = this.addItemSection.classList.contains('show');
+        if (isVisible) {
+            this.hideAddItemSection();
+        } else {
+            this.showAddItemSection();
+        }
+    }
+
+    showAddItemSection() {
+        if (!this.addItemSection || !this.addItemToggle || !this.titleInput) return;
+        
+        this.addItemSection.classList.add('show');
+        this.addItemToggle.classList.add('active');
+        // Focus on the title input when showing the form
+        setTimeout(() => this.titleInput.focus(), 300);
+    }
+
+    hideAddItemSection() {
+        if (!this.addItemSection || !this.addItemToggle || !this.form) return;
+        
+        this.addItemSection.classList.remove('show');
+        this.addItemToggle.classList.remove('active');
+        // Reset form when hiding
+        this.form.reset();
+        this.currentTags.clear();
+        this.renderTagsPreview();
     }
 }
 

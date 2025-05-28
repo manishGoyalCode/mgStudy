@@ -273,9 +273,13 @@ input, button, .reading-item, .tag, .filter-section, .add-item-section {
 
 @media (max-width: 768px) {
     .top-nav {
+        position: relative; /* Remove sticky positioning on mobile */
         padding: 1rem;
         flex-direction: column;
         gap: 1rem;
+        background: var(--card-background); /* Solid background on mobile */
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
     }
 
     .nav-left {
@@ -287,18 +291,47 @@ input, button, .reading-item, .tag, .filter-section, .add-item-section {
 
     .progress-summary {
         width: 100%;
+        display: flex;
         flex-wrap: wrap;
-        justify-content: center;
+        justify-content: space-between;
+        gap: 0.5rem;
     }
 
     .nav-right {
         width: 100%;
+        display: flex;
         justify-content: space-between;
+        gap: 0.5rem;
     }
 
     .nav-button {
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.75rem;
+    }
+
+    .nav-button span {
+        display: block !important; /* Override any previous display: none */
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .nav-button-icon {
+        font-size: 1.25rem;
+    }
+
+    .theme-toggle {
+        padding: 0.75rem;
+    }
+
+    .stat {
+        flex: 1;
+        min-width: calc(33% - 0.5rem);
         justify-content: center;
+        text-align: center;
     }
 }
 
@@ -3064,4 +3097,65 @@ button:active,
     color: var(--secondary-color);
     margin-top: 0.25rem;
     opacity: 0.8;
+}
+
+/* Add Item Toggle Button */
+.add-item-toggle {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: linear-gradient(45deg, var(--primary-color), var(--primary-light));
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s var(--bezier-bounce);
+    z-index: 100;
+}
+
+.add-item-toggle:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: var(--shadow-xl);
+}
+
+.add-item-toggle.active {
+    transform: rotate(45deg);
+    background: linear-gradient(45deg, var(--danger-color), var(--danger-light));
+}
+
+.add-item-section {
+    display: none;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: opacity 0.3s ease, transform 0.3s var(--bezier-bounce);
+    margin-bottom: 2rem;
+    background-color: var(--card-background);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+}
+
+.add-item-section.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Mobile responsiveness for add item toggle */
+@media (max-width: 640px) {
+    .add-item-toggle {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: 3rem;
+        height: 3rem;
+        font-size: 1.25rem;
+    }
 } 

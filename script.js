@@ -149,6 +149,13 @@ class ReadingTracker {
         this.editNotes = document.getElementById('edit-notes');
         this.editorButtons = document.querySelectorAll('.editor-btn');
         
+        // Load saved items
+        const savedItems = localStorage.getItem('readingItems');
+        if (savedItems) {
+            this.items = JSON.parse(savedItems);
+            this.updateStatusCounts(); // Add this line to update counts on load
+        }
+        
         this.initialize();
     }
     
@@ -567,6 +574,7 @@ class ReadingTracker {
         localStorage.setItem('readingItems', JSON.stringify(this.items));
         this.updateStats();
         this.updateAllTags();
+        this.updateStatusCounts();
     }
     
     handleFilter(filter) {
@@ -870,6 +878,7 @@ class ReadingTracker {
                     item.status = newStatus;
                     this.saveItems();
                     this.renderItems();
+                    this.updateStatusCounts();
                 }, 300);
             }
         }
@@ -1754,6 +1763,24 @@ class ReadingTracker {
             saveBtn.innerHTML = originalText;
             saveBtn.disabled = false;
         }, 1000);
+    }
+
+    updateStatusCounts() {
+        // Count items by status
+        const counts = {
+            unread: 0,
+            reading: 0,
+            completed: 0
+        };
+        
+        this.items.forEach(item => {
+            counts[item.status]++;
+        });
+        
+        // Update the DOM
+        document.getElementById('unread-count').textContent = counts.unread;
+        document.getElementById('reading-count').textContent = counts.reading;
+        document.getElementById('completed-count').textContent = counts.completed;
     }
 }
 

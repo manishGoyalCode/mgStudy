@@ -10,21 +10,44 @@
 <body>
     <nav class="top-nav">
         <div class="nav-left">
-            <h1>📚 Reading Tracker</h1>
+            <div class="nav-brand">
+                <h1>Reading Tracker</h1>
+                <p>Track your reading progress</p>
+            </div>
             <div class="progress-summary">
-                <span class="stat" id="unread-count">📥 Unread: 0</span>
-                <span class="stat" id="reading-count">📖 Reading: 0</span>
-                <span class="stat" id="completed-count">✅ Completed: 0</span>
+                <div class="stat">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Unread</span>
+                        <span class="stat-value" id="unread-count">0</span>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-icon">📖</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Reading</span>
+                        <span class="stat-value" id="reading-count">0</span>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <span class="stat-label">Completed</span>
+                        <span class="stat-value" id="completed-count">0</span>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="nav-right">
-            <button id="achievements-toggle" class="stats-toggle" title="View Achievements">
-                🏆
+            <button class="nav-button" id="achievements-toggle" title="View Achievements">
+                <span class="nav-button-icon">🏆</span>
+                <span>Achievements</span>
             </button>
-            <button id="stats-toggle" class="stats-toggle" title="View Statistics">
-                📊
+            <button class="nav-button" id="stats-toggle" title="View Statistics">
+                <span class="nav-button-icon">📊</span>
+                <span>Statistics</span>
             </button>
-            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
                 <span class="theme-toggle-light">🌞</span>
                 <span class="theme-toggle-dark">🌙</span>
             </button>
@@ -345,6 +368,26 @@
             </div>
         </div>
     </div>
+
+    <footer class="app-footer">
+        <div class="footer-content">
+            <div class="creator-info">
+                <span class="creator-name">Created by Manish Goyal</span>
+                <div class="social-links">
+                    <a href="https://github.com/manishGoyalCode" target="_blank" rel="noopener noreferrer" class="social-link">
+                        <span class="social-icon">🐙</span> GitHub
+                    </a>
+                    <a href="https://www.linkedin.com/in/manish-goyal-8900b2188/" target="_blank" rel="noopener noreferrer" class="social-link">
+                        <span class="social-icon">💼</span> LinkedIn
+                    </a>
+                </div>
+            </div>
+            <div class="app-version">
+                <span class="version-tag">v1.0.0</span>
+                <span class="copyright">© 2024</span>
+            </div>
+        </div>
+    </footer>
 
     <script src="achievements.js"></script>
     <script src="script.js"></script>
